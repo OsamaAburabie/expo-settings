@@ -23,6 +23,20 @@ export default function App() {
         title={`Set theme to ${nextTheme}`}
         onPress={() => Settings.setTheme(nextTheme)}
       />
+      <Button
+        title="print array"
+        onPress={() => Settings.printArray(["a", "b", "c"])}
+      />
+      <Button
+        title="print array of records"
+        onPress={() =>
+          Settings.printArrayOfRecords([
+            {
+              name: "a",
+            },
+          ])
+        }
+      />
     </View>
   );
 }
