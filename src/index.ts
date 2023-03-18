@@ -34,4 +34,3 @@ export function setTheme(theme: Theme): void {
 export function printArray(array: string[]): void {
   return ExpoSettingsModule.printArray(array);
 }
-v;

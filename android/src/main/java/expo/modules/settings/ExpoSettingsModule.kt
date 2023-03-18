@@ -38,7 +38,7 @@ class ExpoSettingsModule : Module() {
       array.forEach { println(it) }
     }
 
-    Function ("printArrayOfRecords") { array: Array<Person> ->
+    Function ("printArrayOfRecords") { array: List<Person> ->
       array.forEach { record ->
         println(record.name)
       }
