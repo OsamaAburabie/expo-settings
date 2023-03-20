@@ -34,6 +34,12 @@ export default function App() {
             {
               name: "a",
             },
+            {
+              name: "b",
+            },
+            {
+              name: "c",
+            },
           ])
         }
       />

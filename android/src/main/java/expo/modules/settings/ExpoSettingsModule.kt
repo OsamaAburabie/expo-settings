@@ -20,10 +20,16 @@ internal class Person : Record {
 
 
 class ExpoSettingsModule : Module() {
+
   override fun definition() = ModuleDefinition {
     Name("ExpoSettings")
 
+
+
     Events("onChangeTheme")
+
+
+
 
     Function("setTheme") { theme: Theme ->
       getPreferences().edit().putString("theme", theme.value).commit()
