@@ -3,10 +3,10 @@ package expo.modules.settings
 import android.os.Bundle
 import android.util.Log
 import androidx.core.net.toUri
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.source.TrackGroupArray
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray
+import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
 import com.google.gson.Gson
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -15,15 +15,20 @@ import expo.modules.kotlin.records.Record
 
 const val ON_STATE_CHANGE = "onStateChange"
 const val ON_TRACK_CHANGE = "onTrackChange"
+const val ON_QUEUE_CHANGE = "onQueueChange"
+const val ON_PLAYING_CHANGE = "onPlayingChange"
 
 
 internal class Track : Record {
     @Field
     var title: String? = null
+
     @Field
     var artist: String? = null
+
     @Field
     var uri: String? = null
+
     @Field
     var artwork: String? = null
 }
@@ -34,10 +39,14 @@ class ExpoSettingsModule : Module() {
 
     override fun definition() = ModuleDefinition {
         Name("ExpoSettings")
-        Events(ON_STATE_CHANGE,ON_TRACK_CHANGE)
+        Events(ON_STATE_CHANGE, ON_TRACK_CHANGE, ON_QUEUE_CHANGE, ON_PLAYING_CHANGE)
 
         OnStartObserving {
             mPlayer?.addListener(playbackStateListener())
+        }
+
+        OnStopObserving {
+            mPlayer?.removeListener(playbackStateListener())
         }
 
 
@@ -76,6 +85,23 @@ class ExpoSettingsModule : Module() {
         Function("reset") {
             reset()
         }
+
+        Function("getPosition") {
+            return@Function mPlayer?.currentPosition
+        }
+
+        Function("getDuration") {
+            return@Function mPlayer?.duration
+        }
+
+        Function("getQueue") {
+            return@Function getQueue()
+        }
+
+        Function("getIsPlaying") {
+            return@Function mPlayer?.isPlaying
+        }
+
     }
 
     private val context
@@ -103,8 +129,7 @@ class ExpoSettingsModule : Module() {
 
             val metadata: MediaMetadata = MediaMetadata.Builder()
                 .setTitle(it.title)
-                .setArtist(it.artist).
-                 setExtras(extras)
+                .setArtist(it.artist).setExtras(extras)
                 .build()
 
             MediaItem.Builder()
@@ -141,10 +166,39 @@ class ExpoSettingsModule : Module() {
         mPlayer?.seekToPreviousMediaItem()
     }
 
+    private fun getQueue(): MutableList<Map<String, CharSequence?>> {
+        val mediaMetadataArray = mutableListOf<Map<String, CharSequence?>>()
+
+        mPlayer?.mediaItemCount?.let { count ->
+            for (i in 0 until count) {
+                val mItem = mPlayer?.getMediaItemAt(i)
+                val mediaMetadata = mItem?.mediaMetadata
+                if (mediaMetadata != null) {
+                    val title = mediaMetadata.title
+                    val artist = mediaMetadata.artist
+                    val artwork = mediaMetadata.extras?.getString("artwork")
+
+                    val mapOf = mapOf(
+                        "title" to title,
+                        "artist" to artist,
+                        "artwork" to artwork
+                    )
+
+                    mediaMetadataArray.add(mapOf)
+                }
+            }
+        }
+
+        sendEvent(ON_QUEUE_CHANGE, mapOf("queue" to mediaMetadataArray))
+
+        return mediaMetadataArray
+    }
+
     private fun reset() {
         mPlayer?.stop()
         mPlayer?.clearMediaItems()
     }
+
 
     private fun playbackStateListener() = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -161,13 +215,31 @@ class ExpoSettingsModule : Module() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            mediaItem?.mediaMetadata?.let { metadata ->
-                val stringMetaData= Gson().toJson(metadata)
-                Log.d("ExoPlayer", "mediaMetadata: $stringMetaData")
-                sendEvent(ON_TRACK_CHANGE, mapOf("track" to stringMetaData))
+            val trackMap = if (mediaItem?.mediaMetadata?.title != null) {
+                mapOf(
+                    "title" to mediaItem.mediaMetadata.title,
+                    "artist" to mediaItem.mediaMetadata.artist,
+                    "artwork" to mediaItem.mediaMetadata.extras?.getString("artwork")
+                )
+            } else {
+                null
             }
+            sendEvent(
+                ON_TRACK_CHANGE,
+                mapOf(
+                    "track" to trackMap,
+                    "reason" to reason
+                )
+            )
+
+            getQueue()
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            sendEvent(ON_PLAYING_CHANGE, mapOf("isPlaying" to isPlaying))
         }
     }
+
 }
 
 

@@ -2,16 +2,16 @@ import * as Settings from "expo-settings";
 import * as React from "react";
 import { Button, View } from "react-native";
 
+import useIsPlaying from "./hooks/usePlaying";
+
 export default function App() {
   React.useEffect(() => {
     Settings.initializePlayer();
   }, []);
 
-  React.useEffect(() => {
-    Settings.addTrackListener((track) => {
-      console.log(JSON.parse(track.track));
-    });
-  }, []);
+  const playing = useIsPlaying();
+
+  console.log(playing);
 
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
