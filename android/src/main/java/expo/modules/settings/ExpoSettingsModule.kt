@@ -31,6 +31,9 @@ internal class Track : Record {
 
     @Field
     var artwork: String? = null
+
+    @Field
+    var duration: String? = null
 }
 
 
@@ -42,13 +45,10 @@ class ExpoSettingsModule : Module() {
         Events(ON_STATE_CHANGE, ON_TRACK_CHANGE, ON_QUEUE_CHANGE, ON_PLAYING_CHANGE)
 
         OnStartObserving {
-            mPlayer?.addListener(playbackStateListener())
+            addIsPlayingListener()
+            addStateListener()
+            addTrackChangeListener()
         }
-
-        OnStopObserving {
-            mPlayer?.removeListener(playbackStateListener())
-        }
-
 
         Function("initializePlayer") {
             initializePlayer()
@@ -87,11 +87,11 @@ class ExpoSettingsModule : Module() {
         }
 
         Function("getPosition") {
-            return@Function mPlayer?.currentPosition
+            return@Function mPlayer?.currentPosition ?: 0
         }
 
         Function("getDuration") {
-            return@Function mPlayer?.duration
+            return@Function mPlayer?.duration ?: 0
         }
 
         Function("getQueue") {
@@ -100,6 +100,14 @@ class ExpoSettingsModule : Module() {
 
         Function("getIsPlaying") {
             return@Function mPlayer?.isPlaying
+        }
+
+        Function("getState") {
+            return@Function getState()
+        }
+
+        Function("getCurrentTrack") {
+            return@Function getCurrentTrack()
         }
 
     }
@@ -126,6 +134,7 @@ class ExpoSettingsModule : Module() {
         val mediaItems = tracks.map {
             val extras = Bundle()
             extras.putString("artwork", it.artwork)
+            extras.putString("duration", it.duration)
 
             val metadata: MediaMetadata = MediaMetadata.Builder()
                 .setTitle(it.title)
@@ -166,6 +175,75 @@ class ExpoSettingsModule : Module() {
         mPlayer?.seekToPreviousMediaItem()
     }
 
+    private fun getState(): Int {
+        return mPlayer?.playbackState ?: Player.STATE_IDLE
+    }
+
+    private fun getCurrentTrack(): Map<String, CharSequence?>? {
+        val mediaItem = mPlayer?.currentMediaItem
+        val trackMap = if (mediaItem?.mediaMetadata?.title != null) {
+            mapOf(
+                "title" to mediaItem.mediaMetadata.title,
+                "artist" to mediaItem.mediaMetadata.artist,
+                "artwork" to mediaItem.mediaMetadata.extras?.getString("artwork"),
+                "duration" to mediaItem.mediaMetadata.extras?.getString("duration")
+            )
+        } else {
+            null
+        }
+
+        return trackMap
+    }
+
+    private fun reset() {
+        mPlayer?.stop()
+        mPlayer?.clearMediaItems()
+    }
+
+
+    private fun addIsPlayingListener() {
+        mPlayer?.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                sendEvent(ON_PLAYING_CHANGE, mapOf("isPlaying" to isPlaying))
+            }
+        })
+    }
+
+    private fun addStateListener() {
+        mPlayer?.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                sendEvent(ON_STATE_CHANGE, mapOf("state" to playbackState))
+            }
+        })
+    }
+
+    private fun addTrackChangeListener() {
+        mPlayer?.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val trackMap = if (mediaItem?.mediaMetadata?.title != null) {
+                    mapOf(
+                        "title" to mediaItem.mediaMetadata.title,
+                        "artist" to mediaItem.mediaMetadata.artist,
+                        "artwork" to mediaItem.mediaMetadata.extras?.getString("artwork"),
+                        "duration" to mediaItem.mediaMetadata.extras?.getString("duration")
+                    )
+                } else {
+                    null
+                }
+                sendEvent(
+                    ON_TRACK_CHANGE,
+                    mapOf(
+                        "track" to trackMap,
+                        "reason" to reason
+                    )
+                )
+
+                getQueue()
+            }
+        })
+    }
+
+
     private fun getQueue(): MutableList<Map<String, CharSequence?>> {
         val mediaMetadataArray = mutableListOf<Map<String, CharSequence?>>()
 
@@ -177,11 +255,13 @@ class ExpoSettingsModule : Module() {
                     val title = mediaMetadata.title
                     val artist = mediaMetadata.artist
                     val artwork = mediaMetadata.extras?.getString("artwork")
+                    val duration = mediaMetadata.extras?.getString("duration")
 
                     val mapOf = mapOf(
                         "title" to title,
                         "artist" to artist,
-                        "artwork" to artwork
+                        "artwork" to artwork,
+                        "duration" to duration
                     )
 
                     mediaMetadataArray.add(mapOf)
@@ -194,51 +274,8 @@ class ExpoSettingsModule : Module() {
         return mediaMetadataArray
     }
 
-    private fun reset() {
-        mPlayer?.stop()
-        mPlayer?.clearMediaItems()
-    }
 
 
-    private fun playbackStateListener() = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            val stateString: String = when (playbackState) {
-                ExoPlayer.STATE_IDLE -> "STATE_IDLE"
-                ExoPlayer.STATE_BUFFERING -> "STATE_BUFFERING"
-                ExoPlayer.STATE_READY -> "STATE_READY"
-                ExoPlayer.STATE_ENDED -> "STATE_ENDED"
-                else -> "UNKNOWN_STATE"
-            }
-
-            Log.d("ExoPlayer", "changed state to $stateString")
-            sendEvent(ON_STATE_CHANGE, mapOf("state" to stateString))
-        }
-
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            val trackMap = if (mediaItem?.mediaMetadata?.title != null) {
-                mapOf(
-                    "title" to mediaItem.mediaMetadata.title,
-                    "artist" to mediaItem.mediaMetadata.artist,
-                    "artwork" to mediaItem.mediaMetadata.extras?.getString("artwork")
-                )
-            } else {
-                null
-            }
-            sendEvent(
-                ON_TRACK_CHANGE,
-                mapOf(
-                    "track" to trackMap,
-                    "reason" to reason
-                )
-            )
-
-            getQueue()
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            sendEvent(ON_PLAYING_CHANGE, mapOf("isPlaying" to isPlaying))
-        }
-    }
 
 }
 

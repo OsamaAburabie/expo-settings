@@ -15,8 +15,15 @@ const emitter = new EventEmitter(ExpoSettingsModule);
 export type Theme = "light" | "dark" | "system";
 
 export type StateChangeEvent = {
-  state: string;
+  state: State;
 };
+
+export enum State {
+  STATE_IDLE = 1,
+  STATE_BUFFERING = 2,
+  STATE_READY = 3,
+  STATE_ENDED = 4,
+}
 
 export type TrackChangeEvent = {
   track: TrackMetaData;
@@ -36,12 +43,14 @@ export type Track = {
   title: string;
   artist: string;
   artwork?: string;
+  duration?: number;
 };
 
 export type TrackMetaData = {
   title: string;
   artist: string;
   artwork?: string;
+  duration?: number;
 };
 
 export function addStateListener(
@@ -122,4 +131,12 @@ export function getIsPlaying(): boolean {
 
 export function getQueue(): TrackMetaData[] {
   return ExpoSettingsModule.getQueue();
+}
+
+export function getState(): State {
+  return ExpoSettingsModule.getState();
+}
+
+export function getCurrentTrack(): TrackMetaData {
+  return ExpoSettingsModule.getCurrentTrack();
 }
