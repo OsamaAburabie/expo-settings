@@ -1,17 +1,37 @@
 import * as Settings from "expo-settings";
 import * as React from "react";
-import { Button, View } from "react-native";
+import { Button, Text, View } from "react-native";
 
+import MetaData from "./components/MetaData";
 import useIsPlaying from "./hooks/usePlaying";
+import useProgress from "./hooks/useProgress";
 
 export default function App() {
   React.useEffect(() => {
     Settings.initializePlayer();
   }, []);
 
-  const playing = useIsPlaying();
+  const [show, setShow] = React.useState(false);
 
-  console.log(playing);
+  const PlayButton = () => {
+    const playing = useIsPlaying();
+    const { progress } = useProgress();
+
+    return (
+      <View
+        style={{
+          padding: 10,
+          backgroundColor: "#f4f4f4",
+        }}
+      >
+        <Text>{playing ? "Pause" : "Play"}</Text>
+        <Text>{progress?.duration}</Text>
+        <Text>{progress?.position}</Text>
+
+        <MetaData />
+      </View>
+    );
+  };
 
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -53,11 +73,14 @@ export default function App() {
           ])
         }
       />
+
+      {show && <PlayButton />}
       <Button title="play" onPress={() => Settings.play()} />
       <Button title="pause" onPress={() => Settings.pause()} />
       <Button title="reset" onPress={() => Settings.reset()} />
       <Button title="next" onPress={() => Settings.skipToNext()} />
       <Button title="prev" onPress={() => Settings.skipToPrevious()} />
+      <Button title="state" onPress={() => setShow((prev) => !prev)} />
       <Button
         title="print array of records"
         onPress={() =>
